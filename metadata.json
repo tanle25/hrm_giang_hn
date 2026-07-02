@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Quản lý bán hàng và tồn kho",
+  "description": "Ứng dụng trực quan giúp quản lý kho hàng, lập hóa đơn, theo dõi lịch sử bán hàng và phân tích doanh thu báo cáo chi tiết.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
