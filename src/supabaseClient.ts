@@ -5,6 +5,9 @@ import { Product, Order, InventoryHistory } from "./types";
 const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL;
 const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
 
+console.log("URL:", (import.meta as any).env.VITE_SUPABASE_URL);
+console.log("KEY:", (import.meta as any).env.VITE_SUPABASE_ANON_KEY);
+
 // Check configuration status
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
