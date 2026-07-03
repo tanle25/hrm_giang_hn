@@ -101,7 +101,7 @@ export async function checkSupabaseConnection(): Promise<ConnectionCheckResult> 
   }
 }
 
-// SQL Script for creating database tables
+// SQL Script for creating database tables and storage bucket
 export const SUPABASE_SQL_SETUP = `-- Copy và chạy đoạn mã SQL này trong Supabase SQL Editor:
 
 -- 1. Tạo bảng products (Sản phẩm)
@@ -133,6 +133,19 @@ CREATE TABLE IF NOT EXISTS inventory_history (
   "ghiChu" TEXT,
   "ngay" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
+
+-- 4. Khởi tạo Storage Bucket tên là "products" cho hình ảnh sản phẩm
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('products', 'products', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Cho phép mọi người đọc ảnh công khai từ bucket "products"
+CREATE POLICY "Cho phép đọc ảnh công khai" ON storage.objects
+  FOR SELECT USING (bucket_id = 'products');
+
+-- Cho phép upload ảnh ẩn danh vào bucket "products" để thử nghiệm nhanh
+CREATE POLICY "Cho phép tải lên ảnh tự do" ON storage.objects
+  FOR INSERT WITH CHECK (bucket_id = 'products');
 
 -- Kích hoạt Row Level Security (RLS) cho tất cả các bảng hoặc tắt RLS để thử nghiệm nhanh:
 -- ALTER TABLE products DISABLE ROW LEVEL SECURITY;
@@ -262,3 +275,39 @@ export async function syncLocalDataToSupabase(
     if (hErr) throw hErr;
   }
 }
+
+/**
+ * Uploads a file to Supabase Storage in the 'products' bucket.
+ * Returns the public URL of the uploaded file.
+ */
+export async function uploadProductImageToSupabase(file: File): Promise<string> {
+  if (!supabase) {
+    throw new Error("Supabase is chưa được cấu hình. Không thể tải ảnh lên Storage.");
+  }
+
+  // Create clean filename with unique prefix
+  const fileExt = file.name.split(".").pop();
+  const cleanFileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
+  const filePath = `product-images/${cleanFileName}`;
+
+  // Upload file to 'products' bucket
+  const { data, error } = await supabase.storage
+    .from("products")
+    .upload(filePath, file, {
+      cacheControl: "3600",
+      upsert: false,
+    });
+
+  if (error) {
+    console.error("Error uploading to Supabase Storage:", error);
+    throw new Error(`Lỗi tải ảnh lên Storage: ${error.message}. Hãy đảm bảo bạn đã chạy SQL tạo Bucket 'products' và thiết lập quyền truy cập công khai.`);
+  }
+
+  // Retrieve public URL
+  const { data: { publicUrl } } = supabase.storage
+    .from("products")
+    .getPublicUrl(filePath);
+
+  return publicUrl;
+}
+

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Product } from "../types";
 import { Plus, Edit, Trash2, Image as ImageIcon, AlertCircle, RefreshCw, X } from "lucide-react";
+import { isSupabaseConfigured, uploadProductImageToSupabase } from "../supabaseClient";
 
 interface ProductsTabProps {
   products: Product[];
@@ -53,27 +54,43 @@ export default function ProductsTab({
     setUploadStatus({ type: null, msg: "" });
   };
 
-  // Image upload mock using FileReader base64
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Image upload using Supabase Storage with local Base64 fallback if not connected
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setUploadStatus({ type: "loading", msg: "⏳ Đang tải ảnh lên..." });
+    setUploadStatus({ type: "loading", msg: "⏳ Đang tải ảnh lên Cloud..." });
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        setAnhUrl(reader.result);
-        setUploadStatus({ type: "success", msg: "✅ Tải ảnh thành công" });
+    try {
+      if (isSupabaseConfigured) {
+        const url = await uploadProductImageToSupabase(file);
+        setAnhUrl(url);
+        setUploadStatus({ type: "success", msg: "✅ Đã tải ảnh lên Supabase Storage thành công!" });
       } else {
-        setUploadStatus({ type: "error", msg: "⚠️ Không đọc được tệp ảnh" });
+        // Fallback to local Base64
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (typeof reader.result === "string") {
+            setAnhUrl(reader.result);
+            setUploadStatus({
+              type: "success",
+              msg: "✅ Đang chạy offline: Đã nén ảnh thành Base64 để lưu tạm.",
+            });
+          } else {
+            setUploadStatus({ type: "error", msg: "⚠️ Không đọc được tệp ảnh" });
+          }
+        };
+        reader.readAsDataURL(file);
       }
-    };
-    reader.onerror = () => {
-      setUploadStatus({ type: "error", msg: "⚠️ Lỗi khi tải tệp ảnh" });
-    };
-    reader.readAsDataURL(file);
+    } catch (err: any) {
+      console.error(err);
+      setUploadStatus({
+        type: "error",
+        msg: `⚠️ Thất bại: ${err?.message || "Lỗi khi tải lên Supabase Storage"}.`,
+      });
+    }
   };
+
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
